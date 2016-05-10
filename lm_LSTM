@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import cPickle
+import sys
+import argparse
+import codecs
+from gensim.models import word2vec
+import csv
+import itertools
+import nltk
+import numpy as np
+from LSTM import LSTM, LSTMblock
+
+"""
+
+Data preprocessing part comes from: 
+
+www.wilml.com
+
+From CTY
+
+Date : May 2, 2016
+
+"""
+
+def loadData( file, unknown_token, start_token, end_token, v_size ):
+
+	sys.stderr.write( "Reading training file.\n" )
+
+	with open( file, 'rb' ) as f:
+		sentences = itertools.chain(*[nltk.sent_tokenize(x[0].decode('utf-8').lower()) for x in f])
+		sentences = ["%s %s %s" % ( start_token, x, end_token ) for x in sentences]
+	sys.stderr.write( "Parsed %d sentences.\n" % (len(sentences)) )
+	
+	tokenized_sentences = [ nltk.word_tokenize(sent) for sent in sentences ]
+
+	word_freq = nltk.FreqDist(itertools.chain(*tokenized_sentences))
+
+	word_size = len(word_freq)
+
+	vocab = word_freq.most_common( v_size - 1 )
+
+	index_to_word = [ x[0] for x in vocab ]
+	index_to_word.append( unknown_token )
+
+	word_to_index = dict([(w,i) for i,w in enumerate(index_to_word)])
+
+	for i, sent in enumerate(tokenized_sentences):
+		tokenized_sentences[i] = [ w if w in word_to_index else unknown_token for w in sent ]
+
+	model = word2vec.Word2Vec(tokenized_sentences, size = 100, window = 5, min_count = 5, workers = 4, max_vocab_size = 80000 )
+
+	X_train = []
+	y_train = []
+	for sent in tokenized_sentences:
+		sentArray = []
+		for w in sent[:-1]:
+			wArray = np.zeros(v_size)
+			wArray[word_to_index[w]] = 1
+			sentArray.append(wArray)
+		X_train.append(sentArray)
+		labelArray = []
+		for w in sent[1:]:
+			wArray = np.zeros(v_size)
+			wArray[word_to_index[w]] = 1
+			labelArray.append(wArray)
+		y_train.append(labelArray)	
+	
+
+	return X_train, y_train
+
+def train( X_train, y_train, args ):
+
+	sys.stderr.write( "Start Training: \n" )
+
+	mem_size = args.c
+	max_iter = args.m
+
+	x_dim = args.v
+
+	lstm_net = LSTM( mem_size, x_dim )
+
+	for it in xrange( max_iter ):
+
+		sys.stderr.write( "Iteration: %d\n" % it )
+		LOSS = 0.0
+
+		for s in xrange( len(y_train) ):
+
+			sentence = X_train[s]
+			label = y_train[s]
+
+			for w in xrange( len(sentence) ):
+				lstm_net.addx( np.array( X_train[s][w] ) )
+			
+			lstm_net.backwardpropagation( np.array( sentence ), np.array( label ) )
+			lstm_net.updateParams()
+			LOSS += lstm_net.calculateLoss( sentence, label )
+
+			lstm_net.reset()
+
+		sys.stderr.write( "Loss: %f \n" %  LOSS )
+
+	pass
+
+def main():
+	
+	PARSER = argparse.ArgumentParser( description = "Recurrent Neural Networks" )
+	PARSER.add_argument( "-t", type = str, default = "../data/europarl_eng_10000", help = "training data set" )
+	PARSER.add_argument( "-n", type = int, default = 2, help = "Ngram" )
+	PARSER.add_argument( "-m", type = int, default = 10, help = "Maximum Iteration" )
+	PARSER.add_argument( "-c", type = int, default = 30, help = "Memory size" )
+	PARSER.add_argument( "-v", type = int, default = 2000, help = "Vocabulary size" )
+	args = PARSER.parse_args()
+
+	sys.stdout = codecs.getwriter('utf-8')(sys.stdout) 
+
+
+	unknown_token = '<unk>'
+	start_token = 'startToken'
+	end_token = 'endToken'
+
+	X_train, y_train = loadData( args.t, unknown_token, start_token, end_token, args.v )
+
+ 	train( X_train, y_train, args )
+
+if __name__ == '__main__':
+ 	main() 

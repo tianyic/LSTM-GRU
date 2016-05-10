@@ -3,16 +3,6 @@
 import numpy as np
 import math
 
-"""
-
-Author : Tianyi Chen
-
-Date   : May 2, 2016
-
-Email  : tchen59@jhu.edu
-
-"""
-
 class LSTM(object):
 
 	"""docstring for LSTM"""
@@ -35,16 +25,14 @@ class LSTM(object):
 		self.U_f = np.random.rand( mem_dim, x_dim ) * 0.2 + 0.1
 		self.U_o = np.random.rand( mem_dim, x_dim ) * 0.2 + 0.1
 
-
-		# V
 		self.V = np.random.rand( x_dim, mem_dim ) * 0.2 + 0.1
 
 		# Biases
-		self.b_g = np.random.rand( mem_dim ) * 0.2 + 0.1
-		self.b_i = np.random.rand( mem_dim ) * 0.2 + 0.1
-		self.b_f = np.random.rand( mem_dim ) * 0.2 + 0.1
-		self.b_o = np.random.rand( mem_dim ) * 0.2 + 0.1  
-
+		self.b_g = np.zeros( mem_dim )
+		self.b_i = np.zeros( mem_dim )
+		self.b_f = np.zeros( mem_dim )
+		self.b_o = np.zeros( mem_dim )
+		
 		# Grads
 		self.grad_V   = np.zeros_like( self.V )
 		self.grad_W_g = np.zeros_like( self.W_g )
@@ -85,7 +73,7 @@ class LSTM(object):
 
 	def backwardpropagation( self, x, y_list, Loss = None ):
 
-		T = len( y_list ) - 1
+		T = len( y_list )
 
 		dc_next = np.zeros( self.mem_dim )
 
@@ -94,12 +82,11 @@ class LSTM(object):
 			block = self.block_list[t]
 			delta_y = block.y - y_list[t]
 
-			# print 'loss:', np.linalg.norm(delta_y)
 			self.grad_V = np.outer( delta_y, block.s.T )
 			block.grad_s = np.dot( self.V.T, delta_y )
 
 			if t != T - 1:
-				nextblock = self.block_list[ t + 1]
+				nextblock = self.block_list[ t + 1 ]
 				dc_next = nextblock.grad_c * nextblock.f
 				ds = np.dot( self.W_i.T, tmp_i )
 				ds += np.dot( self.W_f.T, tmp_f )
@@ -118,17 +105,17 @@ class LSTM(object):
 			tmp_o = block.grad_o * block.o * ( 1.0 - block.o )
 			tmp_g = block.grad_g * ( 1.0 - block.g ** 2 )			
 			
-			self.grad_U_i += np.outer( tmp_i, x[T] )
-			self.grad_U_f += np.outer( tmp_f, x[T] )
-			self.grad_U_g += np.outer( tmp_g, x[T] )
-			self.grad_U_o += np.outer( tmp_o, x[T] )
+			self.grad_U_i += np.outer( tmp_i, x[t] )
+			self.grad_U_f += np.outer( tmp_f, x[t] )
+			self.grad_U_g += np.outer( tmp_g, x[t] )
+			self.grad_U_o += np.outer( tmp_o, x[t] )
 
 			self.grad_W_i += np.outer( tmp_i, block.s_old )
 			self.grad_W_f += np.outer( tmp_f, block.s_old )
 			self.grad_W_g += np.outer( tmp_g, block.s_old )
 			self.grad_W_o += np.outer( tmp_o, block.s_old )
 
-	def updateParams( self, lr = 0.05 ):
+	def updateParams( self, lr = 0.01 ):
 
 		self.W_i -= lr * self.grad_W_i
 		self.W_o -= lr * self.grad_W_o
@@ -142,22 +129,23 @@ class LSTM(object):
 
 	def reset( self ):
 
-		self.W_i = np.zeros_like( self.W_i )
-		self.W_o = np.zeros_like( self.W_o )
-		self.W_f = np.zeros_like( self.W_f )
-		self.W_g = np.zeros_like( self.W_g )
+		self.grad_W_i = np.zeros_like( self.W_i )
+		self.grad_W_o = np.zeros_like( self.W_o )
+		self.grad_W_f = np.zeros_like( self.W_f )
+		self.grad_W_g = np.zeros_like( self.W_g )
 
-		self.U_i = np.zeros_like( self.U_i )
-		self.U_o = np.zeros_like( self.U_o )
-		self.U_f = np.zeros_like( self.U_f )
-		self.U_g = np.zeros_like( self.U_g )	
+		self.grad_U_i = np.zeros_like( self.U_i )
+		self.grad_U_o = np.zeros_like( self.U_o )
+		self.grad_U_f = np.zeros_like( self.U_f )
+		self.grad_U_g = np.zeros_like( self.U_g )	
 
 		self.x_list = []
 		self.block_list = []
 
-	def predict( self, x ):
+	def calculateLoss( self, x, label ):
 		
 		self.y = np.zeros_like( x )
+		haty = []
 		for i in xrange( len(self.block_list) ):
 			block = self.block_list[i]
 			block.x = x[i]
@@ -169,6 +157,11 @@ class LSTM(object):
 				c_old = self.block_list[ i - 1 ].c
 				block.forward_propogation( s_old, c_old )
 			self.y[i] = block.y
+			haty.append( block.y[ np.where( label[i] == 1.0 ) ] )
+		Loss = 0.0
+		Loss += -1 * np.sum( np.log( haty ) )
+		
+		return Loss
 
 class LSTMblock(object):
 
@@ -215,8 +208,3 @@ def sigmoid(x):
 def softmax( x, tau = 1.0 ):
 	e = np.exp( np.array(x) / tau )
 	return e / np.sum( e )
-
-
-
-
-
