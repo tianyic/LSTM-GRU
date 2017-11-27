@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ## LSTM and GRU on Language Model
 ### Authors: Tianyi Chen, Zhouyang Zhang
 ### Johns Hopkins University
