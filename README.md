@@ -1,3 +1,10 @@
+If you want to cite our work, please cite 
+
+Tianyi Chen, Zhouyang Zhang, LSTM and GRU on Language Model, Researchgate, 2016.
+
+Thanks!
+
+
 ## LSTM and GRU on Language Model
 ### Authors: Tianyi Chen, Zhouyang Zhang
 ### Johns Hopkins University
