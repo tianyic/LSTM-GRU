@@ -1,6 +1,6 @@
 If you want to cite our work, please cite 
 
-Tianyi Chen, Zhouyang Zhang, LSTM and GRU on Language Model, Researchgate, 2016.
+Tianyi Chen, Zhouyang Zhang, LSTM and GRU on Language Model, DOI: 10.13140/RG.2.2.22647.32163, 2016.
 
 Thanks!
 
